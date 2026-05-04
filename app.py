@@ -6,69 +6,82 @@ import os
 # --- CONFIG & LUXURY DESIGN ---
 st.set_page_config(page_title="AURUM PRESTIGE", layout="centered")
 
-# Hintergrundbild: Zwei durchtrainierte Menschen (High-End Aesthetic)
-# Wir nutzen ein Bild von Unsplash für den edlen Look
+# Hintergrundbild: High-End Fitness Aesthetic
 BG_IMAGE_URL = "https://images.unsplash.com/photo-1550345332-09e3ac987658?q=80&w=2000"
 
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap');
 
+    /* Hintergrund-Layer */
     #bgVideo {{
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        z-index: -1; object-fit: cover; 
+        z-index: -2; object-fit: cover; 
         background: url('{BG_IMAGE_URL}') center/cover no-repeat;
-        filter: brightness(30%) grayscale(100%); /* Schwarz-Weiß & Dunkel für Lesbarkeit */
+        filter: brightness(25%) grayscale(100%);
     }}
     
     .stApp {{ background: transparent !important; }}
+
+    /* Transparenter Header */
+    .luxury-header {{
+        position: fixed;
+        top: 0; left: 0; width: 100%;
+        height: 80px;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }}
     
-    /* Haupt-Card Design */
+    .luxury-header h1 {{
+        margin: 0 !important;
+        font-family: 'Playfair Display', serif !important;
+        font-size: 1.8rem !important;
+        letter-spacing: 5px !important;
+        color: #ffffff !important;
+        text-transform: uppercase;
+    }}
+
+    /* Haupt-Card Padding für den fixierten Header */
     .main-card {{
         background: rgba(255, 255, 255, 0.03);
         backdrop-filter: blur(25px);
         -webkit-backdrop-filter: blur(25px);
-        border-radius: 40px; padding: 50px;
+        border-radius: 40px; 
+        padding: 40px;
         border: 1px solid rgba(255, 255, 255, 0.1);
         color: white; text-align: center;
         box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
         font-family: 'Inter', sans-serif;
+        margin-top: 100px; /* Platz für den Header */
+        margin-bottom: 50px;
     }}
 
-    /* Luxuriöse Typografie */
-    h1, h2, h3 {{ 
-        font-family: 'Playfair Display', serif !important; 
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        color: #ffffff !important;
-    }}
-
-    /* Buttons in Schwarz/Weiß Kontrast */
+    /* Buttons & Kontraste */
     .stButton>button {{
-        width: 100%; border-radius: 0px; /* Minimalistischer Look */
-        background: #ffffff; 
-        color: #000000; font-weight: 700; 
-        border: none; padding: 15px;
-        letter-spacing: 2px;
-        transition: all 0.4s ease;
-        text-transform: uppercase;
+        width: 100%; border-radius: 0px;
+        background: #ffffff; color: #000000; font-weight: 700; 
+        border: none; padding: 15px; letter-spacing: 2px;
+        transition: all 0.4s ease; text-transform: uppercase;
     }}
-    .stButton>button:hover {{
-        background: #cccccc;
-        transform: translateY(-2px);
-    }}
+    .stButton>button:hover {{ background: #cccccc; transform: translateY(-2px); }}
 
-    /* Sidebar & Inputs */
-    div[data-testid="stWidgetLabel"] p {{ 
-        color: #ffffff !important; 
-        font-weight: 300;
-        letter-spacing: 1px;
-    }}
+    div[data-testid="stWidgetLabel"] p {{ color: #ffffff !important; letter-spacing: 1px; }}
     .stSlider > div > div > div > div {{ background-color: white !important; }}
     
-    header {{ visibility: hidden; }}
+    /* Streamlit UI ausblenden */
+    header, [data-testid="stHeader"] {{ visibility: hidden !important; height: 0 !important; }}
     </style>
+    
     <div id="bgVideo"></div>
+    <div class="luxury-header">
+        <h1>AURUM PRESTIGE</h1>
+    </div>
     """, unsafe_allow_html=True)
 
 # Audio-Setup
@@ -77,15 +90,15 @@ if os.path.exists("alarm.mp3"):
     with open("alarm.mp3", "rb") as f:
         audio_html_src = f"data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}"
 
-# State Initialisierung
+# Session State
 if 'phase' not in st.session_state: st.session_state.phase = "SETUP"
 if 'current_set' not in st.session_state: st.session_state.current_set = 1
 
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
 
-# --- PHASE: SETUP ---
+# --- SETUP PHASE ---
 if st.session_state.phase == "SETUP":
-    st.title("AURUM PRESTIGE")
+    st.write("CONFIGURE YOUR ELITE SESSION")
     st.write("---")
     col1, col2 = st.columns(2)
     with col1:
@@ -95,7 +108,6 @@ if st.session_state.phase == "SETUP":
         pause_time = st.slider("PAUSE (SEC)", 5, 180, 60)
         tempo_bpm = st.number_input("TEMPO (BPM)", 20, 120, 45)
     
-    st.write("")
     if st.button("BEGIN TRAINING"):
         st.session_state.target_sets = target_sets
         st.session_state.target_reps = target_reps
@@ -104,22 +116,22 @@ if st.session_state.phase == "SETUP":
         st.session_state.phase = "WORKOUT"
         st.rerun()
 
-# --- PHASE: WORKOUT ---
+# --- WORKOUT PHASE ---
 elif st.session_state.phase == "WORKOUT":
     js_code = f"""
     <div style="color: white; font-family: 'Inter', sans-serif;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px;">
-            <div><small style="letter-spacing: 2px;">SET</small><h2 style="margin:0;">{st.session_state.current_set}/{st.session_state.target_sets}</h2></div>
-            <div><small style="letter-spacing: 2px;">REPS</small><h2 id="rep-count" style="margin:0;">0/{st.session_state.target_reps}</h2></div>
-            <div><small style="letter-spacing: 2px;">TIMER</small><h2 id="timer-text" style="margin:0;">--</h2></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+            <div><small style="letter-spacing: 2px;">SET</small><h2 style="margin:0; font-family:'Playfair Display';">{st.session_state.current_set}/{st.session_state.target_sets}</h2></div>
+            <div><small style="letter-spacing: 2px;">REPS</small><h2 id="rep-count" style="margin:0; font-family:'Playfair Display';">0/{st.session_state.target_reps}</h2></div>
+            <div><small style="letter-spacing: 2px;">TIMER</small><h2 id="timer-text" style="margin:0; font-family:'Playfair Display';">--</h2></div>
         </div>
         
         <div style="position: relative; width: 100%; border: 1px solid rgba(255,255,255,0.2);">
             <video id="vid" style="width: 100%; filter: grayscale(100%) contrast(1.1); background: #000;" autoplay playsinline></video>
-            <button onclick="toggleCamera()" style="position: absolute; top: 10px; right: 10px; background: white; color: black; border: none; padding: 5px 12px; font-size: 10px; font-weight: bold; cursor: pointer;">SWITCH CAM</button>
+            <button onclick="toggleCamera()" style="position: absolute; top: 10px; right: 10px; background: white; color: black; border: none; padding: 5px 12px; font-size: 10px; font-weight: bold; cursor: pointer; letter-spacing: 1px;">SWITCH CAM</button>
         </div>
         
-        <p id="status-text" style="font-size: 18px; letter-spacing: 3px; margin-top: 20px; text-transform: uppercase; font-weight: 300;">INITIALIZING...</p>
+        <p id="status-text" style="font-size: 18px; letter-spacing: 3px; margin-top: 20px; text-transform: uppercase; font-weight: 300; opacity: 0.8;">PREPARING FEED...</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
@@ -133,8 +145,8 @@ elif st.session_state.phase == "WORKOUT":
         function playTick() {{
             const osc = audioCtx.createOscillator();
             const envelope = audioCtx.createGain();
-            osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
-            envelope.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+            envelope.gain.setValueAtTime(0.04, audioCtx.currentTime);
             envelope.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
             osc.connect(envelope); envelope.connect(audioCtx.destination);
             osc.start(); osc.stop(audioCtx.currentTime + 0.05);
@@ -181,7 +193,7 @@ elif st.session_state.phase == "WORKOUT":
                     repDisplay.innerText = reps + "/" + targetReps;
                     if (reps >= targetReps) startRest();
                 }}
-                statusDisplay.innerText = angle < 95 ? "TARGET DEPTH" : "GO DEEPER";
+                statusDisplay.innerText = angle < 95 ? "TARGET DEPTH" : "HOLD FORM";
             }} else if (mode === "ALARM") {{
                 if (angle < 140) {{ alarm.pause(); window.location.reload(); }} 
             }}
@@ -196,11 +208,11 @@ elif st.session_state.phase == "WORKOUT":
 
         function startRest() {{
             mode = "REST"; clearInterval(metronomeInterval);
-            statusDisplay.innerText = "REST PERIOD";
+            statusDisplay.innerText = "RECOVER";
             let timeLeft = pauseTime;
             const itv = setInterval(() => {{
                 timeLeft--; timerDisplay.innerText = timeLeft + "s";
-                if (timeLeft <= 0) {{ clearInterval(itv); mode = "ALARM"; statusDisplay.innerText = "MOVEMENT REQUIRED"; alarm.play(); }}
+                if (timeLeft <= 0) {{ clearInterval(itv); mode = "ALARM"; statusDisplay.innerText = "ACTION REQUIRED"; alarm.play(); }}
             }}, 1000);
         }}
 
