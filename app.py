@@ -4,7 +4,7 @@ import base64
 import os
 
 # --- CONFIG & LUXURY DESIGN ---
-st.set_page_config(page_title="AURUM PRESTIGE; your about to get shredded.", layout="centered")
+st.set_page_config(page_title="AURUM PRESTIGE", layout="centered")
 
 # Hintergrundbild
 BG_IMAGE_URL = "https://images.unsplash.com/photo-1550345332-09e3ac987658?q=80&w=2000"
@@ -14,13 +14,6 @@ st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap');
 
-    /* 1. RADIKALER RESET DES CONTAINERS */
-    .block-container {{
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        margin-top: 0rem !important;
-        max-width: 100% !important;
-    }}
     
     [data-testid="stHeader"], [data-testid="stToolbar"] {{
         display: none !important;
