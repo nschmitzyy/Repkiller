@@ -6,7 +6,6 @@ import os
 # --- CONFIG & LUXURY STYLE ---
 st.set_page_config(page_title="AURUM Squat Coach", layout="centered")
 
-# Hintergrund-Video für den Luxus-Look (Gold/Dunkel)
 VIDEO_URL = "https://raw.githubusercontent.com/nschmitzyy/dehnweckerr/main/247740_medium.mp4"
 
 st.markdown(f"""
@@ -22,19 +21,18 @@ st.markdown(f"""
         border-radius: 30px; padding: 40px;
         border: 1px solid #d4af37;
         color: #d4af37; text-align: center;
-        box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+        box-shadow: 0 0 25px rgba(212, 175, 55, 0.3);
     }}
     .stButton>button {{
         width: 100%; border-radius: 50px; background: #d4af37; 
-        color: black; font-weight: bold; border: none; transition: 0.3s;
+        color: black; font-weight: bold; border: none; padding: 10px;
     }}
-    .stButton>button:hover {{ background: #f4cf67; transform: scale(1.02); }}
-    h1, h2, h3 {{ font-family: 'Playfair Display', serif; color: #d4af37 !important; }}
+    h1, h2, h3 {{ color: #d4af37 !important; }}
     </style>
     <video autoplay muted loop playsinline id="bgVideo"><source src="{VIDEO_URL}" type="video/mp4"></video>
     """, unsafe_allow_html=True)
 
-# Audio-Datei einbinden (Deine mp3)
+# Audio-Datei
 audio_html_src = ""
 if os.path.exists("alarm.mp3"):
     with open("alarm.mp3", "rb") as f:
@@ -46,37 +44,44 @@ if 'phase' not in st.session_state:
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
 
 if st.session_state.phase == "SETUP":
-    st.title("⚜️ AURUM SQUAT")
-    st.write("Konfiguriere dein Elite-Training")
+    st.title("⚜️ AURUM ELITE")
     
-    target_reps = st.number_input("Ziel Wiederholungen", 1, 100, 10)
-    pause_time = st.slider("Pausenzeit (Sekunden)", 5, 120, 30)
-    tempo = st.number_input("Tempo (BPM - Metronom)", 20, 100, 40)
+    col1, col2 = st.columns(2)
+    with col1:
+        target_sets = st.number_input("Sätze gesamt", 1, 20, 3)
+        target_reps = st.number_input("Reps pro Satz", 1, 100, 10)
+    with col2:
+        pause_time = st.slider("Pause (Sekunden)", 5, 180, 60)
+        tempo = st.number_input("Metronom BPM", 20, 120, 45)
     
     if st.button("TRAINING STARTEN"):
+        st.session_state.target_sets = target_sets
         st.session_state.target_reps = target_reps
         st.session_state.pause_time = pause_time
-        st.session_state.tempo = tempo
+        st.session_state.current_set = 1
         st.session_state.phase = "WORKOUT"
         st.rerun()
 
 elif st.session_state.phase == "WORKOUT":
-    # JavaScript Logik für MediaPipe im Browser
     js_code = f"""
     <div style="color: #d4af37; font-family: sans-serif;">
-        <div id="stats" style="display: flex; justify-content: space-around; margin-bottom: 20px;">
+        <div id="stats" style="display: flex; justify-content: space-around; margin-bottom: 15px;">
+            <div><small>SATZ</small><h2 id="set-count">{st.session_state.current_set} / {st.session_state.target_sets}</h2></div>
             <div><small>REPS</small><h2 id="rep-count">0 / {st.session_state.target_reps}</h2></div>
-            <div><small>PHASE</small><h2 id="status-text">BEREIT</h2></div>
-            <div><small>PAUSE</small><h2 id="timer-text">--</h2></div>
+            <div><small>TIMER</small><h2 id="timer-text">--</h2></div>
         </div>
         
-        <video id="vid" style="width: 100%; border-radius: 20px; border: 1px solid #d4af37; transform: scaleX(-1);" autoplay playsinline></video>
-        <p id="feedback" style="font-size: 18px; margin-top: 15px; font-weight: bold; height: 30px;"></p>
+        <div style="position: relative;">
+            <video id="vid" style="width: 100%; border-radius: 15px; border: 1px solid #d4af37; transform: scaleX(-1);" autoplay playsinline></video>
+            <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 5px;">
+                <button onclick="switchCam()" style="background:rgba(0,0,0,0.5); color:white; border:1px solid #d4af37; border-radius:5px; padding:5px; cursor:pointer;">🔄 Kamera</button>
+            </div>
+        </div>
+        
+        <p id="status-text" style="font-size: 20px; font-weight: bold; margin-top: 10px;">BEREIT</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    
     <script>
         const targetReps = {st.session_state.target_reps};
         const pauseTime = {st.session_state.pause_time};
@@ -84,14 +89,42 @@ elif st.session_state.phase == "WORKOUT":
         
         let reps = 0;
         let stage = "up";
-        let mode = "TRAINING"; // TRAINING, REST, ALARM
-        let pauseTimer = null;
+        let mode = "TRAINING";
+        let currentFacingMode = "user";
 
         const video = document.getElementById('vid');
         const repDisplay = document.getElementById('rep-count');
-        const statusDisplay = document.getElementById('status-text');
         const timerDisplay = document.getElementById('timer-text');
-        const feedback = document.getElementById('feedback');
+        const statusDisplay = document.getElementById('status-text');
+
+        async function startCamera() {{
+            const constraints = {{
+                video: {{
+                    facingMode: currentFacingMode,
+                    width: {{ ideal: 1280 }},
+                    height: {{ ideal: 720 }},
+                    // Zoom-Trick: Manche Browser erlauben "zoom", 
+                    // aber für echte 0.5x nutzen wir den Weitwinkel-Constraint falls verfügbar
+                    advanced: [{{ zoom: 0.5 }}] 
+                }}
+            }};
+            
+            try {{
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+            }} catch (err) {{
+                console.error("Camera Error: ", err);
+                // Fallback ohne Zoom
+                const fallback = await navigator.mediaDevices.getUserMedia({{video: true}});
+                video.srcObject = fallback;
+            }}
+        }}
+
+        function switchCam() {{
+            currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+            video.style.transform = (currentFacingMode === "user") ? "scaleX(-1)" : "scaleX(1)";
+            startCamera();
+        }}
 
         function calculateAngle(a, b, c) {{
             let radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
@@ -105,10 +138,8 @@ elif st.session_state.phase == "WORKOUT":
 
         pose.onResults(results => {{
             if (!results.poseLandmarks) return;
-            
             const lm = results.poseLandmarks;
-            const hip = lm[24]; const knee = lm[26]; const ankle = lm[28];
-            const angle = calculateAngle(hip, knee, ankle);
+            const angle = calculateAngle(lm[24], lm[26], lm[28]);
 
             if (mode === "TRAINING") {{
                 if (angle > 160) stage = "up";
@@ -118,47 +149,40 @@ elif st.session_state.phase == "WORKOUT":
                     repDisplay.innerText = reps + " / " + targetReps;
                     if (reps >= targetReps) startRest();
                 }}
-                feedback.innerText = angle < 100 ? "TIEF GENUG!" : "TIEFER GEHEN...";
-                feedback.style.color = angle < 90 ? "#d4af37" : "#666";
-            }} 
-            else if (mode === "ALARM") {{
-                if (angle < 140) {{ // Bewegung erkannt (Puffer)
+                statusDisplay.innerText = angle < 95 ? "TIEF GENUG!" : "TIEFER...";
+            }} else if (mode === "ALARM") {{
+                if (angle < 140) {{
                     alarm.pause();
-                    reps = 0;
-                    repDisplay.innerText = "0 / " + targetReps;
-                    mode = "TRAINING";
-                    statusDisplay.innerText = "TRAINING";
+                    window.parent.postMessage({{type: 'set_done'}}, '*');
                 }}
             }}
         }});
 
         function startRest() {{
             mode = "REST";
-            statusDisplay.innerText = "PAUSE";
             let timeLeft = pauseTime;
-            
-            pauseTimer = setInterval(() => {{
+            const itv = setInterval(() => {{
                 timeLeft--;
                 timerDisplay.innerText = timeLeft + "s";
                 if (timeLeft <= 0) {{
-                    clearInterval(pauseTimer);
+                    clearInterval(itv);
                     mode = "ALARM";
-                    statusDisplay.innerText = "ALARM!";
+                    statusDisplay.innerText = "ALARM! BEWEG DICH!";
                     alarm.play();
                 }}
             }}, 1000);
         }}
 
-        const camera = new Camera(video, {{
-            onFrame: async () => {{ await pose.send({{image: video}}); }},
-            width: 640, height: 480
-        }});
-        camera.start();
+        startCamera();
+        video.onloadedmetadata = () => {{
+            setInterval(async () => {{ await pose.send({{image: video}}); }}, 100);
+        }};
     </script>
     """
-    components.html(js_code, height=700)
+    components.html(js_code, height=650)
     
-    if st.button("ZURÜCK ZUM SETUP"):
+    # Button um Sätze manuell zu beenden oder Reset
+    if st.button("Training abbrechen"):
         st.session_state.phase = "SETUP"
         st.rerun()
 
