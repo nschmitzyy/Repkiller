@@ -3,35 +3,72 @@ import streamlit.components.v1 as components
 import base64
 import os
 
-# --- CONFIG & STYLE ---
-st.set_page_config(page_title="AURUM Elite Coach", layout="centered")
+# --- CONFIG & LUXURY DESIGN ---
+st.set_page_config(page_title="AURUM PRESTIGE", layout="centered")
 
-# Video-Hintergrund (Gold/Dunkel)
-VIDEO_URL = "https://raw.githubusercontent.com/nschmitzyy/dehnweckerr/main/247740_medium.mp4"
+# Hintergrundbild: Zwei durchtrainierte Menschen (High-End Aesthetic)
+# Wir nutzen ein Bild von Unsplash für den edlen Look
+BG_IMAGE_URL = "https://images.unsplash.com/photo-1550345332-09e3ac987658?q=80&w=2000"
 
 st.markdown(f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+
     #bgVideo {{
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        z-index: -1; object-fit: cover; filter: brightness(25%);
+        z-index: -1; object-fit: cover; 
+        background: url('{BG_IMAGE_URL}') center/cover no-repeat;
+        filter: brightness(30%) grayscale(100%); /* Schwarz-Weiß & Dunkel für Lesbarkeit */
     }}
+    
     .stApp {{ background: transparent !important; }}
+    
+    /* Haupt-Card Design */
     .main-card {{
-        background: rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(15px);
-        border-radius: 30px; padding: 40px;
-        border: 1px solid #d4af37;
-        color: #d4af37; text-align: center;
-        box-shadow: 0 0 25px rgba(212, 175, 55, 0.3);
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        border-radius: 40px; padding: 50px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white; text-align: center;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+        font-family: 'Inter', sans-serif;
     }}
+
+    /* Luxuriöse Typografie */
+    h1, h2, h3 {{ 
+        font-family: 'Playfair Display', serif !important; 
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #ffffff !important;
+    }}
+
+    /* Buttons in Schwarz/Weiß Kontrast */
     .stButton>button {{
-        width: 100%; border-radius: 50px; background: #d4af37; 
-        color: black; font-weight: bold; border: none; padding: 12px;
+        width: 100%; border-radius: 0px; /* Minimalistischer Look */
+        background: #ffffff; 
+        color: #000000; font-weight: 700; 
+        border: none; padding: 15px;
+        letter-spacing: 2px;
+        transition: all 0.4s ease;
+        text-transform: uppercase;
     }}
-    div[data-testid="stWidgetLabel"] p {{ color: #d4af37 !important; }}
-    h1, h2, h3 {{ color: #d4af37 !important; font-family: 'Playfair Display', serif; }}
+    .stButton>button:hover {{
+        background: #cccccc;
+        transform: translateY(-2px);
+    }}
+
+    /* Sidebar & Inputs */
+    div[data-testid="stWidgetLabel"] p {{ 
+        color: #ffffff !important; 
+        font-weight: 300;
+        letter-spacing: 1px;
+    }}
+    .stSlider > div > div > div > div {{ background-color: white !important; }}
+    
+    header {{ visibility: hidden; }}
     </style>
-    <video autoplay muted loop playsinline id="bgVideo"><source src="{VIDEO_URL}" type="video/mp4"></video>
+    <div id="bgVideo"></div>
     """, unsafe_allow_html=True)
 
 # Audio-Setup
@@ -40,52 +77,49 @@ if os.path.exists("alarm.mp3"):
     with open("alarm.mp3", "rb") as f:
         audio_html_src = f"data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}"
 
-# Session State Initialisierung
-if 'phase' not in st.session_state:
-    st.session_state.phase = "SETUP"
-if 'current_set' not in st.session_state:
-    st.session_state.current_set = 1
+# State Initialisierung
+if 'phase' not in st.session_state: st.session_state.phase = "SETUP"
+if 'current_set' not in st.session_state: st.session_state.current_set = 1
 
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
 
-# --- SETUP PHASE ---
+# --- PHASE: SETUP ---
 if st.session_state.phase == "SETUP":
-    st.title("⚜️ AURUM ELITE")
+    st.title("AURUM PRESTIGE")
+    st.write("---")
     col1, col2 = st.columns(2)
     with col1:
-        target_sets = st.number_input("Sätze gesamt", 1, 20, 3)
-        target_reps = st.number_input("Reps pro Satz", 1, 100, 10)
+        target_sets = st.number_input("TOTAL SETS", 1, 20, 3)
+        target_reps = st.number_input("REPS", 1, 100, 10)
     with col2:
-        pause_time = st.slider("Pause (Sekunden)", 5, 180, 60)
-        tempo_bpm = st.number_input("Metronom BPM", 20, 120, 45)
+        pause_time = st.slider("PAUSE (SEC)", 5, 180, 60)
+        tempo_bpm = st.number_input("TEMPO (BPM)", 20, 120, 45)
     
-    if st.button("TRAINING STARTEN"):
+    st.write("")
+    if st.button("BEGIN TRAINING"):
         st.session_state.target_sets = target_sets
         st.session_state.target_reps = target_reps
         st.session_state.pause_time = pause_time
         st.session_state.tempo_bpm = tempo_bpm
-        st.session_state.current_set = 1
         st.session_state.phase = "WORKOUT"
         st.rerun()
 
-# --- WORKOUT PHASE ---
+# --- PHASE: WORKOUT ---
 elif st.session_state.phase == "WORKOUT":
-    # JavaScript Code Block
     js_code = f"""
-    <div style="color: #d4af37; font-family: sans-serif; text-align: center;">
-        <div style="display: flex; justify-content: space-around; margin-bottom: 15px;">
-            <div><small>SATZ</small><h2 id="set-disp">{st.session_state.current_set} / {st.session_state.target_sets}</h2></div>
-            <div><small>REPS</small><h2 id="rep-count">0 / {st.session_state.target_reps}</h2></div>
-            <div><small>TIMER</small><h2 id="timer-text">--</h2></div>
+    <div style="color: white; font-family: 'Inter', sans-serif;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px;">
+            <div><small style="letter-spacing: 2px;">SET</small><h2 style="margin:0;">{st.session_state.current_set}/{st.session_state.target_sets}</h2></div>
+            <div><small style="letter-spacing: 2px;">REPS</small><h2 id="rep-count" style="margin:0;">0/{st.session_state.target_reps}</h2></div>
+            <div><small style="letter-spacing: 2px;">TIMER</small><h2 id="timer-text" style="margin:0;">--</h2></div>
         </div>
         
-        <div style="position: relative; width: 100%; max-width: 500px; margin: 0 auto;">
-            <video id="vid" style="width: 100%; border-radius: 20px; border: 2px solid #d4af37; background: #000;" autoplay playsinline></video>
-            <div style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); width: 100%; display: flex; justify-content: center; gap: 10px;">
-                <button onclick="toggleCamera()" style="background: rgba(212, 175, 55, 0.9); color: black; border: none; border-radius: 20px; padding: 8px 15px; font-weight: bold; cursor: pointer;">🔄 Kamera wechseln</button>
-            </div>
+        <div style="position: relative; width: 100%; border: 1px solid rgba(255,255,255,0.2);">
+            <video id="vid" style="width: 100%; filter: grayscale(100%) contrast(1.1); background: #000;" autoplay playsinline></video>
+            <button onclick="toggleCamera()" style="position: absolute; top: 10px; right: 10px; background: white; color: black; border: none; padding: 5px 12px; font-size: 10px; font-weight: bold; cursor: pointer;">SWITCH CAM</button>
         </div>
-        <p id="status-text" style="font-size: 22px; font-weight: bold; margin-top: 15px;">BEREIT</p>
+        
+        <p id="status-text" style="font-size: 18px; letter-spacing: 3px; margin-top: 20px; text-transform: uppercase; font-weight: 300;">INITIALIZING...</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
@@ -95,17 +129,15 @@ elif st.session_state.phase == "WORKOUT":
         const tempoBpm = {st.session_state.tempo_bpm};
         const alarm = new Audio("{audio_html_src}"); alarm.loop = true;
         
-        // Metronom Audio Context
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playTick() {{
             const osc = audioCtx.createOscillator();
             const envelope = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
-            envelope.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            envelope.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+            envelope.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            envelope.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
             osc.connect(envelope); envelope.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.05);
         }}
 
         let reps = 0; let stage = "up"; let mode = "TRAINING";
@@ -146,10 +178,10 @@ elif st.session_state.phase == "WORKOUT":
                 if (angle > 160) stage = "up";
                 if (angle < 90 && stage === "up") {{
                     stage = "down"; reps++;
-                    repDisplay.innerText = reps + " / " + targetReps;
+                    repDisplay.innerText = reps + "/" + targetReps;
                     if (reps >= targetReps) startRest();
                 }}
-                statusDisplay.innerText = angle < 95 ? "TIEF GENUG!" : "GEH TIEFER...";
+                statusDisplay.innerText = angle < 95 ? "TARGET DEPTH" : "GO DEEPER";
             }} else if (mode === "ALARM") {{
                 if (angle < 140) {{ alarm.pause(); window.location.reload(); }} 
             }}
@@ -164,19 +196,12 @@ elif st.session_state.phase == "WORKOUT":
 
         function startRest() {{
             mode = "REST"; clearInterval(metronomeInterval);
-            statusDisplay.innerText = "PAUSE!";
+            statusDisplay.innerText = "REST PERIOD";
             let timeLeft = pauseTime;
             const itv = setInterval(() => {{
                 timeLeft--; timerDisplay.innerText = timeLeft + "s";
-                if (timeLeft <= 0) {{ clearInterval(itv); mode = "ALARM"; statusDisplay.innerText = "ALARM! SQUAT NOW!"; alarm.play(); }}
+                if (timeLeft <= 0) {{ clearInterval(itv); mode = "ALARM"; statusDisplay.innerText = "MOVEMENT REQUIRED"; alarm.play(); }}
             }}, 1000);
-        }}
-
-        function calculateAngle(a, b, c) {{
-            let radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-            let angle = Math.abs(radians * 180.0 / Math.PI);
-            if (angle > 180.0) angle = 360 - angle;
-            return angle;
         }}
 
         initCamera();
@@ -189,7 +214,7 @@ elif st.session_state.phase == "WORKOUT":
     """
     components.html(js_code, height=650)
     
-    if st.button("Training abbrechen"):
+    if st.button("TERMINATE SESSION"):
         st.session_state.phase = "SETUP"
         st.rerun()
 
