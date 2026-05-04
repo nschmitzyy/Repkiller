@@ -4,7 +4,7 @@ import base64
 import os
 
 # --- CONFIG & LUXURY DESIGN ---
-st.set_page_config(page_title="AURUM PRESTIGE", layout="centered")
+st.set_page_config(page_title="AURUM PRESTIGE; your about to get shredded.", layout="centered")
 
 # Hintergrundbild
 BG_IMAGE_URL = "https://images.unsplash.com/photo-1550345332-09e3ac987658?q=80&w=2000"
