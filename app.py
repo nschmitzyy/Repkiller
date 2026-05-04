@@ -1,69 +1,4 @@
-import streamlit as st
-import streamlit.components.v1 as components
-import base64
-import os
-
-# --- CONFIG & LUXURY STYLE ---
-st.set_page_config(page_title="AURUM Squat Coach", layout="centered")
-
-VIDEO_URL = "https://raw.githubusercontent.com/nschmitzyy/dehnweckerr/main/247740_medium.mp4"
-
-st.markdown(f"""
-    <style>
-    #bgVideo {{
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        z-index: -1; object-fit: cover; filter: brightness(25%);
-    }}
-    .stApp {{ background: transparent !important; }}
-    .main-card {{
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(15px);
-        border-radius: 30px; padding: 40px;
-        border: 1px solid #d4af37;
-        color: #d4af37; text-align: center;
-        box-shadow: 0 0 25px rgba(212, 175, 55, 0.3);
-    }}
-    .stButton>button {{
-        width: 100%; border-radius: 50px; background: #d4af37; 
-        color: black; font-weight: bold; border: none; padding: 10px;
-    }}
-    h1, h2, h3 {{ color: #d4af37 !important; }}
-    </style>
-    <video autoplay muted loop playsinline id="bgVideo"><source src="{VIDEO_URL}" type="video/mp4"></video>
-    """, unsafe_allow_html=True)
-
-# Audio-Datei
-audio_html_src = ""
-if os.path.exists("alarm.mp3"):
-    with open("alarm.mp3", "rb") as f:
-        audio_html_src = f"data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}"
-
-if 'phase' not in st.session_state:
-    st.session_state.phase = "SETUP"
-
-st.markdown('<div class="main-card">', unsafe_allow_html=True)
-
-if st.session_state.phase == "SETUP":
-    st.title("⚜️ AURUM ELITE")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        target_sets = st.number_input("Sätze gesamt", 1, 20, 3)
-        target_reps = st.number_input("Reps pro Satz", 1, 100, 10)
-    with col2:
-        pause_time = st.slider("Pause (Sekunden)", 5, 180, 60)
-        tempo = st.number_input("Metronom BPM", 20, 120, 45)
-    
-    if st.button("TRAINING STARTEN"):
-        st.session_state.target_sets = target_sets
-        st.session_state.target_reps = target_reps
-        st.session_state.pause_time = pause_time
-        st.session_state.current_set = 1
-        st.session_state.phase = "WORKOUT"
-        st.rerun()
-
-elif st.session_state.phase == "WORKOUT":
-    js_code = f"""
+js_code = f"""
     <div style="color: #d4af37; font-family: sans-serif;">
         <div id="stats" style="display: flex; justify-content: space-around; margin-bottom: 15px;">
             <div><small>SATZ</small><h2 id="set-count">{st.session_state.current_set} / {st.session_state.target_sets}</h2></div>
@@ -71,14 +6,18 @@ elif st.session_state.phase == "WORKOUT":
             <div><small>TIMER</small><h2 id="timer-text">--</h2></div>
         </div>
         
-        <div style="position: relative;">
-            <video id="vid" style="width: 100%; border-radius: 15px; border: 1px solid #d4af37; transform: scaleX(-1);" autoplay playsinline></video>
-            <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 5px;">
-                <button onclick="switchCam()" style="background:rgba(0,0,0,0.5); color:white; border:1px solid #d4af37; border-radius:5px; padding:5px; cursor:pointer;">🔄 Kamera</button>
+        <div style="position: relative; width: 100%; max-width: 640px; margin: 0 auto;">
+            <video id="vid" style="width: 100%; border-radius: 15px; border: 2px solid #d4af37; background: #000;" autoplay playsinline></video>
+            
+            <!-- Kamera-Steuerung Buttons -->
+            <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; z-index: 10;">
+                <button onclick="toggleCamera()" style="background: rgba(212, 175, 55, 0.8); color: black; border: none; border-radius: 25px; padding: 10px 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                    🔄 KAMERA WECHSELN
+                </button>
             </div>
         </div>
         
-        <p id="status-text" style="font-size: 20px; font-weight: bold; margin-top: 10px;">BEREIT</p>
+        <p id="status-text" style="font-size: 20px; font-weight: bold; margin-top: 15px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">BEREIT</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
@@ -87,57 +26,57 @@ elif st.session_state.phase == "WORKOUT":
         const pauseTime = {st.session_state.pause_time};
         const alarm = new Audio("{audio_html_src}"); alarm.loop = true;
         
+        let currentStream = null;
+        let useFrontCamera = true; // Startet standardmäßig mit Front
+        let mode = "TRAINING";
         let reps = 0;
         let stage = "up";
-        let mode = "TRAINING";
-        let currentFacingMode = "user";
 
         const video = document.getElementById('vid');
         const repDisplay = document.getElementById('rep-count');
         const timerDisplay = document.getElementById('timer-text');
         const statusDisplay = document.getElementById('status-text');
 
-        async function startCamera() {{
+        // Funktion zum Starten der Kamera mit spezifischen Constraints
+        async function initCamera() {{
+            if (currentStream) {{
+                currentStream.getTracks().forEach(track => track.stop());
+            }}
+
             const constraints = {{
                 video: {{
-                    facingMode: currentFacingMode,
+                    facingMode: useFrontCamera ? "user" : "environment",
                     width: {{ ideal: 1280 }},
-                    height: {{ ideal: 720 }},
-                    // Zoom-Trick: Manche Browser erlauben "zoom", 
-                    // aber für echte 0.5x nutzen wir den Weitwinkel-Constraint falls verfügbar
-                    advanced: [{{ zoom: 0.5 }}] 
+                    height: {{ ideal: 720 }}
                 }}
             }};
-            
+
             try {{
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = stream;
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                
+                // Spiegelung nur bei der Frontkamera
+                video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
+                
             }} catch (err) {{
-                console.error("Camera Error: ", err);
-                // Fallback ohne Zoom
-                const fallback = await navigator.mediaDevices.getUserMedia({{video: true}});
-                video.srcObject = fallback;
+                console.error("Kamera-Fehler:", err);
+                alert("Kamera konnte nicht geladen werden.");
             }}
         }}
 
-        function switchCam() {{
-            currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
-            video.style.transform = (currentFacingMode === "user") ? "scaleX(-1)" : "scaleX(1)";
-            startCamera();
+        function toggleCamera() {{
+            useFrontCamera = !useFrontCamera;
+            initCamera();
         }}
 
-        function calculateAngle(a, b, c) {{
-            let radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-            let angle = Math.abs(radians * 180.0 / Math.PI);
-            if (angle > 180.0) angle = 360 - angle;
-            return angle;
-        }}
-
+        // Pose Erkennung Setup
         const pose = new Pose({{locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${{f}}` }});
         pose.setOptions({{ modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 }});
 
         pose.onResults(results => {{
             if (!results.poseLandmarks) return;
+            
+            // Logik für Kniebeugen-Winkel (LM 24: Hüfte, 26: Knie, 28: Knöchel)
             const lm = results.poseLandmarks;
             const angle = calculateAngle(lm[24], lm[26], lm[28]);
 
@@ -149,17 +88,30 @@ elif st.session_state.phase == "WORKOUT":
                     repDisplay.innerText = reps + " / " + targetReps;
                     if (reps >= targetReps) startRest();
                 }}
-                statusDisplay.innerText = angle < 95 ? "TIEF GENUG!" : "TIEFER...";
+                statusDisplay.innerText = angle < 95 ? "TIEF GENUG!" : "GEH TIEFER...";
+                statusDisplay.style.color = angle < 95 ? "#4CAF50" : "#d4af37";
             }} else if (mode === "ALARM") {{
                 if (angle < 140) {{
                     alarm.pause();
-                    window.parent.postMessage({{type: 'set_done'}}, '*');
+                    // Reset für nächsten Satz
+                    reps = 0;
+                    repDisplay.innerText = "0 / " + targetReps;
+                    mode = "TRAINING";
+                    statusDisplay.innerText = "NÄCHSTER SATZ STARTET!";
                 }}
             }}
         }});
 
+        function calculateAngle(a, b, c) {{
+            let radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            if (angle > 180.0) angle = 360 - angle;
+            return angle;
+        }}
+
         function startRest() {{
             mode = "REST";
+            statusDisplay.innerText = "PAUSE!";
             let timeLeft = pauseTime;
             const itv = setInterval(() => {{
                 timeLeft--;
@@ -173,17 +125,16 @@ elif st.session_state.phase == "WORKOUT":
             }}, 1000);
         }}
 
-        startCamera();
-        video.onloadedmetadata = () => {{
-            setInterval(async () => {{ await pose.send({{image: video}}); }}, 100);
-        }};
+        // Start
+        initCamera();
+        
+        // Loop für MediaPipe
+        async function detectionLoop() {{
+            if (video.paused || video.ended) return;
+            await pose.send({{image: video}});
+            requestAnimationFrame(detectionLoop);
+        }}
+        video.onloadeddata = () => {{ detectionLoop(); }};
+
     </script>
     """
-    components.html(js_code, height=650)
-    
-    # Button um Sätze manuell zu beenden oder Reset
-    if st.button("Training abbrechen"):
-        st.session_state.phase = "SETUP"
-        st.rerun()
-
-st.markdown('</div>', unsafe_allow_html=True)
