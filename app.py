@@ -1,132 +1,165 @@
 import streamlit as st
-import cv2
-import mediapipe as mp
-import numpy as np
-import time
-import pygame
-from datetime import datetime
+import streamlit.components.v1 as components
+import base64
+import os
 
-# --- INITIALISIERUNG ---
-mp_pose = mp.solutions.pose
-mp_drawing = mp.solutions.drawing_utils
-pygame.mixer.init()
+# --- CONFIG & LUXURY STYLE ---
+st.set_page_config(page_title="AURUM Squat Coach", layout="centered")
 
-# Luxus-Design via CSS
-st.set_page_config(page_title="AURUM Fitness AI", layout="wide")
-st.markdown("""
+# Hintergrund-Video für den Luxus-Look (Gold/Dunkel)
+VIDEO_URL = "https://raw.githubusercontent.com/nschmitzyy/dehnweckerr/main/247740_medium.mp4"
+
+st.markdown(f"""
     <style>
-    .main { background-color: #0e1117; color: #e0e0e0; }
-    .stSlider > div > div > div > div { background-color: #d4af37; }
-    h1 { color: #d4af37; font-family: 'Playfair Display', serif; text-align: center; }
-    .stat-box { padding: 20px; border-radius: 10px; border: 1px solid #d4af37; text-align: center; background: #1a1c23; }
+    #bgVideo {{
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        z-index: -1; object-fit: cover; filter: brightness(25%);
+    }}
+    .stApp {{ background: transparent !important; }}
+    .main-card {{
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(15px);
+        border-radius: 30px; padding: 40px;
+        border: 1px solid #d4af37;
+        color: #d4af37; text-align: center;
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+    }}
+    .stButton>button {{
+        width: 100%; border-radius: 50px; background: #d4af37; 
+        color: black; font-weight: bold; border: none; transition: 0.3s;
+    }}
+    .stButton>button:hover {{ background: #f4cf67; transform: scale(1.02); }}
+    h1, h2, h3 {{ font-family: 'Playfair Display', serif; color: #d4af37 !important; }}
     </style>
+    <video autoplay muted loop playsinline id="bgVideo"><source src="{VIDEO_URL}" type="video/mp4"></video>
     """, unsafe_allow_html=True)
 
-def calculate_angle(a, b, c):
-    a = np.array(a) # Hüfte
-    b = np.array(b) # Knie
-    c = np.array(c) # Knöchel
-    radians = np.arctan2(c[1]-b[1], c[0]-b[0]) - np.arctan2(a[1]-b[1], a[0]-b[0])
-    angle = np.abs(radians*180.0/np.pi)
-    if angle > 180.0: angle = 360-angle
-    return angle
+# Audio-Datei einbinden (Deine mp3)
+audio_html_src = ""
+if os.path.exists("alarm.mp3"):
+    with open("alarm.mp3", "rb") as f:
+        audio_html_src = f"data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}"
 
-def play_alarm():
-    if not pygame.mixer.music.get_busy():
-        try:
-            pygame.mixer.music.load("alarm.mp3")
-            pygame.mixer.music.play(-1) # Loop
-        except:
-            pass
+if 'phase' not in st.session_state:
+    st.session_state.phase = "SETUP"
 
-def stop_alarm():
-    pygame.mixer.music.stop()
+st.markdown('<div class="main-card">', unsafe_allow_html=True)
 
-# --- SIDEBAR EINSTELLUNGEN ---
-st.sidebar.header("⚜️ COACH EINSTELLUNGEN")
-target_reps = st.sidebar.number_input("Ziel Wiederholungen", min_value=1, value=10)
-rest_time = st.sidebar.slider("Pausenzeit (Sekunden)", 5, 120, 30)
-tempo_bpm = st.sidebar.number_input("Metronom (BPM)", 20, 100, 40)
+if st.session_state.phase == "SETUP":
+    st.title("⚜️ AURUM SQUAT")
+    st.write("Konfiguriere dein Elite-Training")
+    
+    target_reps = st.number_input("Ziel Wiederholungen", 1, 100, 10)
+    pause_time = st.slider("Pausenzeit (Sekunden)", 5, 120, 30)
+    tempo = st.number_input("Tempo (BPM - Metronom)", 20, 100, 40)
+    
+    if st.button("TRAINING STARTEN"):
+        st.session_state.target_reps = target_reps
+        st.session_state.pause_time = pause_time
+        st.session_state.tempo = tempo
+        st.session_state.phase = "WORKOUT"
+        st.rerun()
 
-# --- APP LOGIK ---
-st.title("AURUM PERSONAL COACH")
-
-col1, col2 = st.columns([3, 1])
-
-with col2:
-    rep_counter = st.empty()
-    stage_display = st.empty()
-    timer_display = st.empty()
-    feedback_display = st.empty()
-
-ctx = cv2.VideoCapture(0)
-counter = 0
-stage = None # "up" oder "down"
-workout_state = "TRAINING" # TRAINING, REST, ALARM
-start_rest_time = 0
-
-with col1:
-    view = st.image([])
-
-with mp_pose.Pose(min_detection_confidence=0.7, min_tracking_confidence=0.7) as pose:
-    while ctx.isOpened():
-        ret, frame = ctx.read()
-        if not ret: break
-
-        # Bild verarbeiten
-        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = pose.process(image)
+elif st.session_state.phase == "WORKOUT":
+    # JavaScript Logik für MediaPipe im Browser
+    js_code = f"""
+    <div style="color: #d4af37; font-family: sans-serif;">
+        <div id="stats" style="display: flex; justify-content: space-around; margin-bottom: 20px;">
+            <div><small>REPS</small><h2 id="rep-count">0 / {st.session_state.target_reps}</h2></div>
+            <div><small>PHASE</small><h2 id="status-text">BEREIT</h2></div>
+            <div><small>PAUSE</small><h2 id="timer-text">--</h2></div>
+        </div>
         
-        try:
-            landmarks = results.pose_landmarks.landmark
-            
-            # Koordinaten holen (Hüfte, Knie, Knöchel)
-            hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x, landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
-            knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x, landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
-            ankle = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x, landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
-            
-            angle = calculate_angle(hip, knee, ankle)
+        <video id="vid" style="width: 100%; border-radius: 20px; border: 1px solid #d4af37; transform: scaleX(-1);" autoplay playsinline></video>
+        <p id="feedback" style="font-size: 18px; margin-top: 15px; font-weight: bold; height: 30px;"></p>
+    </div>
 
-            # LOGIK: Kniebeuge zählen
-            if workout_state == "TRAINING":
-                if angle > 160:
-                    stage = "UP"
-                if angle < 90 and stage == 'UP':
-                    stage = "DOWN"
-                    counter += 1
-                    
-                if counter >= target_reps:
-                    workout_state = "REST"
-                    start_rest_time = time.time()
-
-            # LOGIK: Pausen & Alarm
-            elif workout_state == "REST":
-                elapsed = time.time() - start_rest_time
-                remaining = rest_time - int(elapsed)
-                timer_display.markdown(f"<div class='stat-box'>⏳ PAUSE: {remaining}s</div>", unsafe_allow_html=True)
-                
-                if remaining <= 0:
-                    workout_state = "ALARM"
-            
-            elif workout_state == "ALARM":
-                timer_display.markdown("<div class='stat-box' style='color:red;'>🚨 ZEIT ABGELAUFEN! BEWEG DICH!</div>", unsafe_allow_html=True)
-                play_alarm()
-                # Wenn Winkel sich 90 Grad nähert (Bewegung startet), stoppe Alarm
-                if angle < 140: 
-                    stop_alarm()
-                    counter = 0 # Reset für nächsten Satz
-                    workout_state = "TRAINING"
-
-        except Exception as e:
-            pass
-
-        # Visualisierung
-        mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
-        view.image(image, channels="RGB")
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    
+    <script>
+        const targetReps = {st.session_state.target_reps};
+        const pauseTime = {st.session_state.pause_time};
+        const alarm = new Audio("{audio_html_src}"); alarm.loop = true;
         
-        rep_counter.markdown(f"<div class='stat-box'><h1>{counter} / {target_reps}</h1>REPS</div>", unsafe_allow_html=True)
-        
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        let reps = 0;
+        let stage = "up";
+        let mode = "TRAINING"; // TRAINING, REST, ALARM
+        let pauseTimer = null;
 
-ctx.release()
+        const video = document.getElementById('vid');
+        const repDisplay = document.getElementById('rep-count');
+        const statusDisplay = document.getElementById('status-text');
+        const timerDisplay = document.getElementById('timer-text');
+        const feedback = document.getElementById('feedback');
+
+        function calculateAngle(a, b, c) {{
+            let radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            if (angle > 180.0) angle = 360 - angle;
+            return angle;
+        }}
+
+        const pose = new Pose({{locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${{f}}` }});
+        pose.setOptions({{ modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 }});
+
+        pose.onResults(results => {{
+            if (!results.poseLandmarks) return;
+            
+            const lm = results.poseLandmarks;
+            const hip = lm[24]; const knee = lm[26]; const ankle = lm[28];
+            const angle = calculateAngle(hip, knee, ankle);
+
+            if (mode === "TRAINING") {{
+                if (angle > 160) stage = "up";
+                if (angle < 90 && stage === "up") {{
+                    stage = "down";
+                    reps++;
+                    repDisplay.innerText = reps + " / " + targetReps;
+                    if (reps >= targetReps) startRest();
+                }}
+                feedback.innerText = angle < 100 ? "TIEF GENUG!" : "TIEFER GEHEN...";
+                feedback.style.color = angle < 90 ? "#d4af37" : "#666";
+            }} 
+            else if (mode === "ALARM") {{
+                if (angle < 140) {{ // Bewegung erkannt (Puffer)
+                    alarm.pause();
+                    reps = 0;
+                    repDisplay.innerText = "0 / " + targetReps;
+                    mode = "TRAINING";
+                    statusDisplay.innerText = "TRAINING";
+                }}
+            }}
+        }});
+
+        function startRest() {{
+            mode = "REST";
+            statusDisplay.innerText = "PAUSE";
+            let timeLeft = pauseTime;
+            
+            pauseTimer = setInterval(() => {{
+                timeLeft--;
+                timerDisplay.innerText = timeLeft + "s";
+                if (timeLeft <= 0) {{
+                    clearInterval(pauseTimer);
+                    mode = "ALARM";
+                    statusDisplay.innerText = "ALARM!";
+                    alarm.play();
+                }}
+            }}, 1000);
+        }}
+
+        const camera = new Camera(video, {{
+            onFrame: async () => {{ await pose.send({{image: video}}); }},
+            width: 640, height: 480
+        }});
+        camera.start();
+    </script>
+    """
+    components.html(js_code, height=700)
+    
+    if st.button("ZURÜCK ZUM SETUP"):
+        st.session_state.phase = "SETUP"
+        st.rerun()
+
+st.markdown('</div>', unsafe_allow_html=True)
